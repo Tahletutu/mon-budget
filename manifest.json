@@ -1,13 +1,11 @@
 {
   "name": "Mon Budget",
   "short_name": "Budget",
-  "description": "Gérez vos finances simplement",
-  "start_url": ".",
-  "scope": ".",
+  "start_url": "/monbudget/",
+  "scope": "/monbudget/",
   "display": "standalone",
   "background_color": "#F2F2F7",
   "theme_color": "#007AFF",
-  "lang": "fr",
   "icons": [
     {
       "src": "icon-192.png",
