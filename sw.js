@@ -1,5 +1,13 @@
 const CACHE = 'monbudget-v1';
-const FILES = ['/monbudget/', '/monbudget/index.html'];
+const FILES = [
+    './',
+    './index.html',
+    './manifest.json',
+    './monbudget/', 
+    './monbudget/index.html'
+    './icon-192.png',
+    './icon-512.png',
+];
 
 self.addEventListener('install', e => {
     e.waitUntil(
