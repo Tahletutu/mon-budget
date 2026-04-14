@@ -1,5 +1,5 @@
 const CACHE = 'monbudget-v1';
-const FILES = ['/', '/index.html'];
+const FILES = ['/monbudget/', '/monbudget/index.html'];
 
 self.addEventListener('install', e => {
     e.waitUntil(
