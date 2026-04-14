@@ -751,7 +751,15 @@ function dismissInstall() {
 
 // ─── SERVICE WORKER ───────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(registration => {
+        console.log('Service Worker OK:', registration.scope);
+      })
+      .catch(error => {
+        console.error('Service Worker erreur:', error);
+      });
+  });
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
