@@ -26,6 +26,8 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   e.respondWith(
-    fetch(e.request).catch(() => caches.match('./index.html'))
+    caches.match(e.request).then(res => {
+      return res || fetch(e.request);
+    })
   );
 });
