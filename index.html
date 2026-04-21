@@ -153,6 +153,11 @@ input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-ou
 .small-stat .k{font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:2px}.small-stat .v{margin-top:8px;font-size:20px;font-weight:800}
 @media (max-width:430px){.page-title{font-size:30px}.summary-grid,.overview-grid,.stats-row,.choice-grid{grid-template-columns:1fr 1fr}.filter-grid{grid-template-columns:1fr}.hero-actions{grid-template-columns:1fr 1fr}.greeting-name{font-size:26px}}
 body.compact .home-header{padding-bottom:14px} body.compact .summary-hero{padding:18px} body.compact .summary-grid{gap:10px;padding-top:14px} body.compact .settings-card{padding:16px} body.compact .transaction-item, body.compact .budget-item, body.compact .template-item{padding:12px 0}
+
+.chip-btn{border:1px solid var(--border);background:var(--panel-2);border-radius:999px;padding:8px 12px;color:var(--text);font-weight:700;font-size:12px}
+#lockScreen.hidden{display:none !important}
+#lockScreen:not(.hidden){display:flex !important}
+
 </style>
 </head>
 <body>
@@ -279,6 +284,12 @@ body.compact .home-header{padding-bottom:14px} body.compact .summary-hero{paddin
     <div class="group-card"><div class="group-inner" id="allBudgetsList"></div></div>
 
     <div class="section-header">
+      <div class="section-title">🎯 Objectifs d’épargne</div>
+      <button class="see-all-btn" onclick="openModal('goal')">Ajouter →</button>
+    </div>
+    <div class="group-card"><div class="group-inner" id="goalsList"></div></div>
+
+    <div class="section-header">
       <div class="section-title">🔁 Modèles récurrents</div>
       <button class="see-all-btn" onclick="openModal('template')">Ajouter →</button>
     </div>
@@ -310,8 +321,13 @@ body.compact .home-header{padding-bottom:14px} body.compact .summary-hero{paddin
       <div class="small-stat"><div class="k">Taux d’épargne</div><div class="v mono" id="reportSavingsRate">0%</div></div>
       <div class="small-stat"><div class="k">Plus gros poste</div><div class="v" id="reportTopCategory">—</div></div>
     </div>
-    <div class="group-label">Par catégorie</div>
-    <div class="group-card"><div class="group-inner chart-wrap" id="categoryBreakdown"></div></div>
+    <div class="group-label">Répartition visuelle</div>
+    <div class="group-card"><div class="group-inner chart-wrap">
+      <div id="reportDonutWrap"></div>
+      <div id="categoryBreakdown"></div>
+    </div></div>
+    <div class="group-label">Tendance 6 mois</div>
+    <div class="group-card"><div class="group-inner chart-wrap" id="trendChart"></div></div>
   </div>
 
   <div id="settingsPage" class="page">
@@ -396,6 +412,48 @@ body.compact .home-header{padding-bottom:14px} body.compact .summary-hero{paddin
       </div>
     </div>
 
+    <div class="group-label">🏷 Catégories perso</div>
+    <div class="settings-card">
+      <div class="filter-grid">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="customCategoryType">
+            <option value="expense">Dépense</option>
+            <option value="income">Revenu</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Nom</label>
+          <input type="text" class="form-input" id="customCategoryName" placeholder="Ex : 🐶 Animaux">
+        </div>
+      </div>
+      <button class="submit-btn" style="margin-top:12px" onclick="addCustomCategory()">Ajouter la catégorie</button>
+      <div id="customCategoriesList" class="helper-text" style="margin-top:14px"></div>
+    </div>
+
+    <div class="group-label">🔐 Sécurité</div>
+    <div class="settings-card">
+      <div class="setting-row">
+        <div class="setting-info"><div class="setting-title">Verrou PIN</div><div class="setting-sub">Code local à 4 chiffres à l’ouverture</div></div>
+        <button class="toggle" id="pinToggle" onclick="togglePinLock()"></button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info"><div class="setting-title">Verrouiller quand l’app passe en arrière-plan</div><div class="setting-sub">Pratique pour garder tes montants privés</div></div>
+        <button class="toggle" id="autoLockToggle" onclick="toggleAutoLock()"></button>
+      </div>
+      <div class="filter-grid">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Nouveau PIN</label>
+          <input type="password" inputmode="numeric" maxlength="4" class="form-input" id="pinInput" placeholder="4 chiffres">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Confirmation</label>
+          <input type="password" inputmode="numeric" maxlength="4" class="form-input" id="pinConfirmInput" placeholder="4 chiffres">
+        </div>
+      </div>
+      <button class="submit-btn secondary" style="margin-top:12px" onclick="savePinCode()">Enregistrer / changer le PIN</button>
+    </div>
+
     <div class="group-label">📲 PWA</div>
     <div class="settings-card">
       <p id="pwaStatusText" class="helper-text" style="margin-top:0">L’application peut être installée sur l’écran d’accueil et utilisée hors ligne.</p>
@@ -472,6 +530,32 @@ body.compact .home-header{padding-bottom:14px} body.compact .summary-hero{paddin
   </div>
 </div>
 
+<div id="goalModal" class="modal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="modal-header"><div class="modal-title" id="goalModalTitle">🎯 Objectif d’épargne</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="goalEditId">
+      <div class="form-group"><label class="form-label">Nom</label><input type="text" class="form-input" id="goalName" placeholder="Ex : Volant simracing"></div>
+      <div class="filter-grid">
+        <div class="form-group"><label class="form-label">Objectif (€)</label><input type="number" step="0.01" min="1" inputmode="decimal" class="form-input" id="goalTarget" placeholder="1200"></div>
+        <div class="form-group"><label class="form-label">Déjà mis de côté (€)</label><input type="number" step="0.01" min="0" inputmode="decimal" class="form-input" id="goalSaved" placeholder="200"></div>
+      </div>
+      <button class="submit-btn" onclick="saveGoal()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="lockScreen" class="hidden" style="position:fixed;inset:0;z-index:5000;background:linear-gradient(180deg,var(--bg),var(--bg2));padding:24px;display:flex;align-items:center;justify-content:center">
+  <div class="confirm-box" style="max-width:380px;width:100%;display:block">
+    <div class="confirm-title">🔐 App verrouillée</div>
+    <div class="confirm-message">Entre ton code PIN pour accéder à Mon Budget.</div>
+    <div class="form-group"><label class="form-label">PIN</label><input type="password" inputmode="numeric" maxlength="4" class="form-input" id="unlockPinInput" placeholder="••••"></div>
+    <button class="submit-btn" onclick="unlockApp()">Déverrouiller</button>
+    <div class="helper-text" id="unlockHint" style="margin-top:12px">Le code reste stocké localement sur cet appareil.</div>
+  </div>
+</div>
+
 <div id="confirmModal">
   <div class="confirm-box">
     <div class="confirm-title" id="confirmTitle">Confirmer</div>
@@ -485,7 +569,7 @@ body.compact .home-header{padding-bottom:14px} body.compact .summary-hero{paddin
 <div id="toast"></div>
 
 <script>
-const APP_VERSION='4.0.0';
+const APP_VERSION='5.0.0';
 const CATS={
   income:['💼 Salaire','🎁 Prime','💻 Freelance','📦 Vente','🏦 Investissement','💸 Remboursement','💰 Autre revenu'],
   expense:['🛒 Alimentation','🚗 Transport','🎮 Loisirs','🏠 Logement','💊 Santé','🛍 Shopping','🍽 Restaurants','📱 Abonnements','💡 Énergie','🏋️ Sport','✈️ Voyage','📚 Éducation']
@@ -502,7 +586,10 @@ const PREFS_DEFAULT={
   smartTips:true,
   startPage:'home',
   txFilter:'all',
-  txSort:'recent'
+  txSort:'recent',
+  pinEnabled:false,
+  pinCode:'',
+  autoLock:false
 };
 
 function load(k,d){try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch{return d;}}
@@ -520,23 +607,29 @@ function escapeHtml(str){return String(str).replace(/[&<>"']/g,m=>({'&':'&amp;',
 let transactions=load('mb_transactions',[]);
 let budgets=load('mb_budgets',[]);
 let templates=load('mb_templates',[]);
+let goals=load('mb_goals',[]);
+let customCategories=load('mb_custom_categories',{income:[],expense:[]});
 let prefs={...PREFS_DEFAULT,...load('mb_prefs',{})};
 let nextTxId=load('mb_next_tx_id',1);
 let nextBudId=load('mb_next_bud_id',1);
 let nextTplId=load('mb_next_tpl_id',1);
+let nextGoalId=load('mb_next_goal_id',1);
+let editingTxId=null;
+let appLocked=false;
 let deferredInstallPrompt=null;
 const nowRef=new Date();
 let txMonth={m:nowRef.getMonth(),y:nowRef.getFullYear()};
 let rpMonth={m:nowRef.getMonth(),y:nowRef.getFullYear()};
 
 function persistAll(){
-  save('mb_transactions',transactions); save('mb_budgets',budgets); save('mb_templates',templates);
-  save('mb_next_tx_id',nextTxId); save('mb_next_bud_id',nextBudId); save('mb_next_tpl_id',nextTplId);
+  save('mb_transactions',transactions); save('mb_budgets',budgets); save('mb_templates',templates); save('mb_goals',goals); save('mb_custom_categories',customCategories);
+  save('mb_next_tx_id',nextTxId); save('mb_next_bud_id',nextBudId); save('mb_next_tpl_id',nextTplId); save('mb_next_goal_id',nextGoalId);
   save('mb_prefs',prefs);
 }
 
 function ensureMigration(){
-  if(!Array.isArray(transactions))transactions=[]; if(!Array.isArray(budgets))budgets=[]; if(!Array.isArray(templates))templates=[];
+  if(!Array.isArray(transactions))transactions=[]; if(!Array.isArray(budgets))budgets=[]; if(!Array.isArray(templates))templates=[]; if(!Array.isArray(goals))goals=[];
+  customCategories={income:Array.isArray(customCategories?.income)?customCategories.income:[],expense:Array.isArray(customCategories?.expense)?customCategories.expense:[]};
   transactions=transactions.map((t,i)=>({
     id:Number.isFinite(t.id)?t.id:(i+1),
     type:t.type==='income'?'income':'expense',
@@ -549,9 +642,13 @@ function ensureMigration(){
   })).filter(t=>t.amount>0&&t.description);
   budgets=budgets.map((b,i)=>({id:Number.isFinite(b.id)?b.id:(i+1),category:b.category||'🛒 Alimentation',limit:Number(b.limit)||0,created:b.created||new Date().toISOString()})).filter(b=>b.limit>0);
   templates=templates.map((t,i)=>({id:Number.isFinite(t.id)?t.id:(i+1),type:t.type==='income'?'income':'expense',category:t.category||(t.type==='income'?'💰 Autre revenu':'🛒 Alimentation'),description:(t.description||'Sans titre').trim(),amount:Number(t.amount)||0,day:Math.min(28,Math.max(1,Number(t.day)||1))})).filter(t=>t.amount>0&&t.description);
+  goals=goals.map((g,i)=>({id:Number.isFinite(g.id)?g.id:(i+1),name:(g.name||'Objectif').trim(),target:Number(g.target)||0,saved:Math.max(0,Number(g.saved)||0),created:g.created||new Date().toISOString()})).filter(g=>g.target>0&&g.name);
+  customCategories.income=[...new Set(customCategories.income.map(x=>String(x).trim()).filter(Boolean))];
+  customCategories.expense=[...new Set(customCategories.expense.map(x=>String(x).trim()).filter(Boolean))];
   nextTxId=Math.max(1,...transactions.map(t=>t.id||0))+1;
   nextBudId=Math.max(1,...budgets.map(b=>b.id||0))+1;
   nextTplId=Math.max(1,...templates.map(t=>t.id||0))+1;
+  nextGoalId=Math.max(1,...goals.map(g=>g.id||0))+1;
   persistAll();
 }
 
@@ -572,13 +669,26 @@ function applyPrefs(){
   document.getElementById('fontModeSelect').value=prefs.fontMode;
   document.getElementById('startPageSelect').value=prefs.startPage;
   document.getElementById('txSort').value=prefs.txSort;
-  toggleState('compactToggle',prefs.compact); toggleState('motionToggle',prefs.reducedMotion); toggleState('hideBalanceToggle',prefs.hideBalance); toggleState('tipsToggle',prefs.smartTips);
+  toggleState('compactToggle',prefs.compact); toggleState('motionToggle',prefs.reducedMotion); toggleState('hideBalanceToggle',prefs.hideBalance); toggleState('tipsToggle',prefs.smartTips); toggleState('pinToggle',prefs.pinEnabled); toggleState('autoLockToggle',prefs.autoLock);
   document.querySelectorAll('#accentChoices .palette-btn').forEach(btn=>btn.classList.toggle('selected',btn.dataset.accent===prefs.accent));
   document.getElementById('appVersionLabel').textContent=`v${APP_VERSION}`;
   updateBalanceVisibility();
+  renderCustomCategories();
 }
 function toggleState(id,on){document.getElementById(id)?.classList.toggle('on',!!on)}
-function savePrefs(){persistAll();applyPrefs();renderDashboard();renderAllTransactions();renderAllBudgets();renderTemplates();renderReports();updatePwaControls()}
+
+function getAllCategories(type){return [...CATS[type], ...customCategories[type]].filter((v,i,a)=>a.indexOf(v)===i)}
+function renderCategoryOptions(selectId,type,selected=''){const sel=document.getElementById(selectId); if(!sel)return; sel.innerHTML='<option value="">Choisir…</option>'+getAllCategories(type).map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join(''); if(selected) sel.value=selected}
+function renderCustomCategories(){const wrap=document.getElementById('customCategoriesList'); if(!wrap)return; const html=['income','expense'].map(type=>{const label=type==='income'?'Revenus':'Dépenses'; const items=getAllCategories(type).map(cat=>{const builtIn=CATS[type].includes(cat); const safe=escapeHtml(cat); const remove=builtIn?'':` <button class="row-delete" style="padding:0 0 0 2px" onclick="removeCustomCategory('${type}', ${JSON.stringify(cat).replace(/"/g,'&quot;')})">✕</button>`; return `<span class="chip-btn" style="margin:4px 6px 0 0;display:inline-flex;align-items:center;gap:8px;${builtIn?'opacity:.8':''}">${safe}${remove}</span>`}).join(''); return `<div style="margin-bottom:10px"><strong>${label}</strong><div style="margin-top:6px">${items||'<span class="helper-text">Aucune catégorie</span>'}</div></div>`}).join(''); wrap.innerHTML=html}
+function addCustomCategory(){const type=document.getElementById('customCategoryType').value; const input=document.getElementById('customCategoryName'); const name=input.value.trim(); if(name.length<2)return showToast('Entre un vrai nom de catégorie.','error'); if(getAllCategories(type).includes(name))return showToast('Cette catégorie existe déjà.','info'); customCategories[type].push(name); input.value=''; persistAll(); renderCustomCategories(); showToast('Catégorie ajoutée.','success')}
+function removeCustomCategory(type,name){customCategories[type]=customCategories[type].filter(c=>c!==name); transactions=transactions.map(t=>t.category===name?{...t,category:type==='income'?'💰 Autre revenu':'🛒 Alimentation'}:t); budgets=budgets.filter(b=>b.category!==name); templates=templates.filter(t=>t.category!==name); persistAll(); renderCustomCategories(); renderDashboard(); renderAllTransactions(); renderAllBudgets(); renderTemplates(); renderReports(); showToast('Catégorie supprimée.','info')}
+function togglePinLock(){prefs.pinEnabled=!prefs.pinEnabled; if(prefs.pinEnabled&&!prefs.pinCode){prefs.pinEnabled=false; showToast('Définis d’abord un PIN.','error')} savePrefs()}
+function toggleAutoLock(){prefs.autoLock=!prefs.autoLock; savePrefs()}
+function savePinCode(){const a=document.getElementById('pinInput').value.trim(); const b=document.getElementById('pinConfirmInput').value.trim(); if(!/^\d{4}$/.test(a))return showToast('Le PIN doit contenir 4 chiffres.','error'); if(a!==b)return showToast('Les PIN ne correspondent pas.','error'); prefs.pinCode=a; prefs.pinEnabled=true; document.getElementById('pinInput').value=''; document.getElementById('pinConfirmInput').value=''; savePrefs(); showToast('PIN enregistré.','success')}
+function lockApp(force=false){if(!prefs.pinEnabled||!prefs.pinCode)return; if(appLocked && !force)return; appLocked=true; document.getElementById('lockScreen').classList.remove('hidden'); setTimeout(()=>document.getElementById('unlockPinInput')?.focus(),60)}
+function unlockApp(){const val=document.getElementById('unlockPinInput').value.trim(); if(val!==prefs.pinCode){document.getElementById('unlockHint').textContent='Code incorrect.'; return showToast('PIN incorrect.','error')} appLocked=false; document.getElementById('unlockPinInput').value=''; document.getElementById('unlockHint').textContent='Le code reste stocké localement sur cet appareil.'; document.getElementById('lockScreen').classList.add('hidden'); showToast('Déverrouillé.','success')}
+
+function savePrefs(){persistAll();applyPrefs();renderDashboard();renderAllTransactions();renderAllBudgets();renderTemplates();renderGoals();renderReports();updatePwaControls()}
 function setThemeMode(mode){prefs.themeMode=mode;savePrefs()}
 function setAccent(accent){prefs.accent=accent;savePrefs()}
 function setFontMode(mode){prefs.fontMode=mode;savePrefs()}
@@ -609,7 +719,7 @@ function switchPage(page){
   const map={home:'navHome',transactions:'navTransactions',budgets:'navBudgets',reports:'navReports',settings:'navSettings'};
   if(map[page])document.getElementById(map[page]).classList.add('active');
   if(page==='transactions')renderAllTransactions();
-  if(page==='budgets'){renderAllBudgets();renderTemplates()}
+  if(page==='budgets'){renderAllBudgets();renderTemplates();renderGoals()}
   if(page==='reports')renderReports();
   if(page==='settings'){applyPrefs();updatePwaControls()}
 }
@@ -626,8 +736,7 @@ function clearData(){showConfirm('Toutes les transactions, budgets, modèles et 
 function openModal(type){
   document.querySelectorAll('.modal').forEach(m=>m.classList.remove('show'));
   if(type==='budget'){
-    const sel=document.getElementById('budgetCategory'); sel.innerHTML='<option value="">Choisir…</option>';
-    CATS.expense.forEach(c=>sel.innerHTML+=`<option value="${c}">${c}</option>`);
+    renderCategoryOptions('budgetCategory','expense');
     document.getElementById('budgetAmount').value='';
     document.getElementById('budgetModal').classList.add('show');
     return;
@@ -638,12 +747,17 @@ function openModal(type){
     document.getElementById('templateModal').classList.add('show');
     return;
   }
+  if(type==='goal'){
+    document.getElementById('goalEditId').value=''; document.getElementById('goalName').value=''; document.getElementById('goalTarget').value=''; document.getElementById('goalSaved').value=''; document.getElementById('goalModalTitle').textContent='🎯 Objectif d’épargne';
+    document.getElementById('goalModal').classList.add('show');
+    return;
+  }
+  editingTxId=null;
   document.getElementById('transactionModal').classList.add('show');
   document.getElementById('transactionType').value=type;
   document.getElementById('modalTitle').textContent=type==='income'?'📈 Ajouter un revenu':'📉 Ajouter une dépense';
-  const sel=document.getElementById('category'); sel.innerHTML='<option value="">Choisir…</option>';
-  CATS[type].forEach(c=>sel.innerHTML+=`<option value="${c}">${c}</option>`);
-  document.getElementById('txDate').value=todayISO(); document.getElementById('amount').value=''; document.getElementById('description').value='';
+  renderCategoryOptions('category',type);
+  document.getElementById('txDate').value=todayISO(); document.getElementById('amount').value=''; document.getElementById('description').value=''; document.getElementById('addTransactionBtn').textContent='Enregistrer';
 }
 function closeModal(){document.querySelectorAll('.modal').forEach(m=>m.classList.remove('show'))}
 document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal()}));
@@ -651,10 +765,19 @@ document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if
 function addTransaction(prefill){
   const amount=Number(prefill?.amount ?? document.getElementById('amount').value); const cat=prefill?.category ?? document.getElementById('category').value; const desc=(prefill?.description ?? document.getElementById('description').value).trim(); const date=prefill?.date ?? document.getElementById('txDate').value; const type=prefill?.type ?? document.getElementById('transactionType').value;
   if(!amount||amount<=0||!cat||!desc||!date)return showToast('Remplis tous les champs.','error');
-  transactions.unshift({id:nextTxId++,type,amount,category:cat,description:desc,date,templateId:prefill?.templateId||null,created:new Date().toISOString()});
-  persistAll(); if(!prefill)closeModal(); renderDashboard(); renderAllTransactions(); renderReports(); renderAllBudgets(); showToast(type==='income'?'Revenu ajouté.':'Dépense ajoutée.',type==='income'?'success':'info')
+  if(editingTxId){
+    transactions=transactions.map(t=>t.id===editingTxId?{...t,type,amount,category:cat,description:desc,date}:t);
+    editingTxId=null;
+    document.getElementById('addTransactionBtn').textContent='Enregistrer';
+    showToast('Transaction modifiée.','success');
+  } else {
+    transactions.unshift({id:nextTxId++,type,amount,category:cat,description:desc,date,templateId:prefill?.templateId||null,created:new Date().toISOString()});
+    showToast(type==='income'?'Revenu ajouté.':'Dépense ajoutée.',type==='income'?'success':'info');
+  }
+  persistAll(); if(!prefill)closeModal(); renderDashboard(); renderAllTransactions(); renderReports(); renderAllBudgets(); renderGoals();
 }
-function deleteTransaction(id){showConfirm('Supprimer cette transaction définitivement ?','🗑 Suppression',()=>{transactions=transactions.filter(t=>t.id!==id);persistAll();renderDashboard();renderAllTransactions();renderReports();renderAllBudgets();showToast('Transaction supprimée.','info')})}
+function editTransaction(id){const tx=transactions.find(t=>t.id===id); if(!tx)return; editingTxId=id; document.getElementById('transactionModal').classList.add('show'); document.getElementById('transactionType').value=tx.type; document.getElementById('modalTitle').textContent='✏️ Modifier la transaction'; renderCategoryOptions('category',tx.type,tx.category); document.getElementById('amount').value=tx.amount; document.getElementById('description').value=tx.description; document.getElementById('txDate').value=tx.date; document.getElementById('addTransactionBtn').textContent='Mettre à jour';}
+function deleteTransaction(id){showConfirm('Supprimer cette transaction définitivement ?','🗑 Suppression',()=>{transactions=transactions.filter(t=>t.id!==id);persistAll();renderDashboard();renderAllTransactions();renderReports();renderAllBudgets();renderGoals();showToast('Transaction supprimée.','info')})}
 
 function addBudget(){const cat=document.getElementById('budgetCategory').value; const amount=Number(document.getElementById('budgetAmount').value); if(!cat||!amount||amount<=0)return showToast('Remplis tous les champs.','error'); const idx=budgets.findIndex(b=>b.category===cat); if(idx>=0)budgets[idx].limit=amount; else budgets.push({id:nextBudId++,category:cat,limit:amount,created:new Date().toISOString()}); persistAll(); closeModal(); renderDashboard(); renderAllBudgets(); renderReports(); showToast('Budget enregistré.','success')}
 function deleteBudget(id){showConfirm('Supprimer ce budget ?','🗑 Suppression',()=>{budgets=budgets.filter(b=>b.id!==id);persistAll();renderDashboard();renderAllBudgets();renderReports();showToast('Budget supprimé.','info')})}
@@ -682,7 +805,7 @@ function renderDashboard(){
   const bl=document.getElementById('budgetsList');
   bl.innerHTML=budgetStatus.mapped.length===0?'<div class="empty-state"><div class="empty-ico">📊</div><div class="empty-heading">Aucun budget</div><div class="empty-sub">Crée un budget pour suivre tes plafonds par catégorie</div></div>':budgetStatus.mapped.map(b=>{const c=barCls(b.pct); const remain=b.limit-b.spent; return `<div class="budget-item"><div class="budget-dot ${c}"></div><div class="budget-info"><div class="budget-name">${b.category}</div><div class="budget-sub">${remain>=0?`Reste ${fmtS(remain)}`:`Dépassé de ${fmtS(Math.abs(remain))}`}</div><div class="progress"><div class="progress-bar ${c}" style="width:${Math.min(100,b.pct)}%"></div></div></div><div class="tx-amount ${remain<0?'expense':'template'}">${prefs.hideBalance?'••••':fmtS(b.spent)}</div></div>`}).join('');
   const rec=sortTransactions(transactions).slice(0,5); const tl=document.getElementById('transactionsList');
-  tl.innerHTML=rec.length===0?'<div class="empty-state"><div class="empty-ico">🧾</div><div class="empty-heading">Aucune transaction</div><div class="empty-sub">Ajoute un revenu ou une dépense pour commencer</div></div>':rec.map(t=>`<div class="transaction-item"><div class="tx-icon ${t.type}">${t.type==='income'?'📈':'📉'}</div><div class="tx-info"><div class="tx-title">${escapeHtml(t.description)}</div><div class="tx-category">${t.category} · ${parseLocalDate(t.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div></div><div class="tx-amount ${t.type}">${prefs.hideBalance?'••••':`${t.type==='income'?'+':'−'}${fmt(t.amount)}`}</div><button class="row-delete" onclick="deleteTransaction(${t.id})">✕</button></div>`).join('');
+  tl.innerHTML=rec.length===0?'<div class="empty-state"><div class="empty-ico">🧾</div><div class="empty-heading">Aucune transaction</div><div class="empty-sub">Ajoute un revenu ou une dépense pour commencer</div></div>':rec.map(t=>`<div class="transaction-item"><div class="tx-icon ${t.type}">${t.type==='income'?'📈':'📉'}</div><div class="tx-info"><div class="tx-title">${escapeHtml(t.description)}</div><div class="tx-category">${t.category} · ${parseLocalDate(t.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div></div><div class="tx-amount ${t.type}">${prefs.hideBalance?'••••':`${t.type==='income'?'+':'−'}${fmt(t.amount)}`}</div><button class="row-delete" onclick="editTransaction(${t.id})">✎</button><button class="row-delete" onclick="deleteTransaction(${t.id})">✕</button></div>`).join('');
   updateStatusPills();
 }
 
@@ -698,7 +821,7 @@ function renderAllTransactions(){
   if(prefs.txSort==='recent')fl=sortTransactions(fl); else if(prefs.txSort==='oldest')fl=sortTransactions(fl).reverse(); else if(prefs.txSort==='amount_desc')fl=[...fl].sort((a,b)=>b.amount-a.amount); else if(prefs.txSort==='amount_asc')fl=[...fl].sort((a,b)=>a.amount-b.amount); else if(prefs.txSort==='alpha')fl=[...fl].sort((a,b)=>a.description.localeCompare(b.description,'fr'));
   document.getElementById('txCountLabel').textContent=`${fl.length} transaction${fl.length>1?'s':''}`;
   const list=document.getElementById('allTransactionsList');
-  list.innerHTML=fl.length===0?'<div class="empty-state"><div class="empty-ico">🧾</div><div class="empty-heading">Aucune transaction</div><div class="empty-sub">Aucun résultat avec les filtres choisis</div></div>':fl.map(t=>`<div class="transaction-item"><div class="tx-icon ${t.type}">${t.type==='income'?'📈':'📉'}</div><div class="tx-info"><div class="tx-title">${escapeHtml(t.description)}</div><div class="tx-category">${t.category} · ${parseLocalDate(t.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</div></div><div class="tx-amount ${t.type}">${prefs.hideBalance?'••••':`${t.type==='income'?'+':'−'}${fmt(t.amount)}`}</div><button class="row-delete" onclick="deleteTransaction(${t.id})">✕</button></div>`).join('');
+  list.innerHTML=fl.length===0?'<div class="empty-state"><div class="empty-ico">🧾</div><div class="empty-heading">Aucune transaction</div><div class="empty-sub">Aucun résultat avec les filtres choisis</div></div>':fl.map(t=>`<div class="transaction-item"><div class="tx-icon ${t.type}">${t.type==='income'?'📈':'📉'}</div><div class="tx-info"><div class="tx-title">${escapeHtml(t.description)}</div><div class="tx-category">${t.category} · ${parseLocalDate(t.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</div></div><div class="tx-amount ${t.type}">${prefs.hideBalance?'••••':`${t.type==='income'?'+':'−'}${fmt(t.amount)}`}</div><button class="row-delete" onclick="editTransaction(${t.id})">✎</button><button class="row-delete" onclick="deleteTransaction(${t.id})">✕</button></div>`).join('');
 }
 
 function renderAllBudgets(){
@@ -706,12 +829,21 @@ function renderAllBudgets(){
   list.innerHTML=budgets.length===0?'<div class="empty-state"><div class="empty-ico">📊</div><div class="empty-heading">Aucun budget</div><div class="empty-sub">Crée un plafond mensuel pour tes dépenses importantes</div></div>':budgets.map(b=>{const spent=getBudgetSpent(b.category); const pct=b.limit?spent/b.limit*100:0; const remain=b.limit-spent; const c=barCls(pct); return `<div class="budget-item" style="align-items:flex-start"><div class="budget-dot ${c}" style="margin-top:8px"></div><div class="budget-info"><div class="budget-name">${b.category}</div><div class="budget-sub">${remain>=0?`Reste ${fmtS(remain)} · ≈ ${fmtS(remain/Math.max(1,daysLeft))}/jour`:`Dépassé de ${fmtS(Math.abs(remain))}`}</div><div class="progress"><div class="progress-bar ${c}" style="width:${Math.min(100,pct)}%"></div></div></div><div class="tx-amount ${remain<0?'expense':'template'}">${prefs.hideBalance?'••••':fmtS(b.limit)}</div><button class="row-delete" onclick="deleteBudget(${b.id})">✕</button></div>`}).join('');
 }
 
-function fillTemplateCategoryOptions(){const type=document.getElementById('templateType').value; const sel=document.getElementById('templateCategory'); sel.innerHTML='<option value="">Choisir…</option>'; CATS[type].forEach(c=>sel.innerHTML+=`<option value="${c}">${c}</option>`)}
+function fillTemplateCategoryOptions(){const type=document.getElementById('templateType').value; renderCategoryOptions('templateCategory',type)}
 document.getElementById('templateType').addEventListener('change',fillTemplateCategoryOptions);
 function addTemplate(){const type=document.getElementById('templateType').value; const category=document.getElementById('templateCategory').value; const description=document.getElementById('templateDescription').value.trim(); const amount=Number(document.getElementById('templateAmount').value); const day=Math.min(28,Math.max(1,parseInt(document.getElementById('templateDay').value,10))); if(!category||!description||!amount||amount<=0||!day)return showToast('Remplis tous les champs.','error'); templates.push({id:nextTplId++,type,category,description,amount,day}); persistAll(); closeModal(); renderTemplates(); showToast('Modèle enregistré.','success')}
 function deleteTemplate(id){showConfirm('Supprimer ce modèle récurrent ?','🗑 Suppression',()=>{templates=templates.filter(t=>t.id!==id);persistAll();renderTemplates();showToast('Modèle supprimé.','info')})}
 function applyDueTemplates(){const now=new Date(); const thisMonth=monthKey(now); let added=0; for(const tpl of templates){ if(now.getDate()<tpl.day)continue; const targetDate=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(tpl.day)}`; const exists=transactions.some(t=>t.templateId===tpl.id&&monthKey(t.date)===thisMonth); if(exists)continue; transactions.unshift({id:nextTxId++,type:tpl.type,amount:tpl.amount,category:tpl.category,description:tpl.description,date:targetDate,templateId:tpl.id,created:new Date().toISOString()}); added++; } if(added){persistAll(); showToast(`${added} opération${added>1?'s':''} récurrente${added>1?'s':''} ajoutée${added>1?'s':''}.`,'info')}}
 function renderTemplates(){const list=document.getElementById('templatesList'); list.innerHTML=templates.length===0?'<div class="empty-state"><div class="empty-ico">🔁</div><div class="empty-heading">Aucun modèle</div><div class="empty-sub">Ajoute ton loyer, salaire ou tes abonnements</div></div>':templates.sort((a,b)=>a.day-b.day).map(t=>`<div class="template-item"><div class="tx-icon template">🔁</div><div class="tx-info"><div class="tx-title">${escapeHtml(t.description)}</div><div class="tx-category">${t.category} · le ${t.day} de chaque mois</div></div><div class="tx-amount template">${prefs.hideBalance?'••••':`${t.type==='income'?'+':'−'}${fmt(t.amount)}`}</div><button class="row-delete" onclick="deleteTemplate(${t.id})">✕</button></div>`).join('')}
+
+
+function saveGoal(){const id=Number(document.getElementById('goalEditId').value||0); const name=document.getElementById('goalName').value.trim(); const target=Number(document.getElementById('goalTarget').value); const saved=Number(document.getElementById('goalSaved').value||0); if(!name||!target||target<=0||saved<0)return showToast('Remplis correctement ton objectif.','error'); if(id){goals=goals.map(g=>g.id===id?{...g,name,target,saved}:g)} else {goals.unshift({id:nextGoalId++,name,target,saved,created:new Date().toISOString()})} persistAll(); closeModal(); renderGoals(); showToast('Objectif enregistré.','success')}
+function editGoal(id){const g=goals.find(x=>x.id===id); if(!g)return; document.getElementById('goalEditId').value=g.id; document.getElementById('goalName').value=g.name; document.getElementById('goalTarget').value=g.target; document.getElementById('goalSaved').value=g.saved; document.getElementById('goalModalTitle').textContent='🎯 Modifier l’objectif'; document.getElementById('goalModal').classList.add('show')}
+function adjustGoal(id,delta){goals=goals.map(g=>g.id===id?{...g,saved:Math.max(0,Math.min(g.target,g.saved+delta))}:g); persistAll(); renderGoals(); showToast(delta>=0?'Épargne ajoutée.':'Épargne retirée.','success')}
+function deleteGoal(id){showConfirm('Supprimer cet objectif ?','🎯 Suppression',()=>{goals=goals.filter(g=>g.id!==id); persistAll(); renderGoals(); showToast('Objectif supprimé.','info')})}
+function renderGoals(){const list=document.getElementById('goalsList'); if(!list)return; const balance=transactions.reduce((s,t)=>s+(t.type==='income'?t.amount:-t.amount),0); list.innerHTML=goals.length===0?'<div class="empty-state"><div class="empty-ico">🎯</div><div class="empty-heading">Aucun objectif</div><div class="empty-sub">Ajoute un objectif d’épargne pour suivre un achat ou un projet.</div></div>':goals.map(g=>{const pct=Math.min(100,(g.saved/g.target)*100); const left=Math.max(0,g.target-g.saved); const canCover=balance>=left&&left>0; return `<div class="budget-item" style="align-items:flex-start"><div class="budget-dot ${pct>=100?'':'warning'}" style="margin-top:8px"></div><div class="budget-info"><div class="budget-name">${escapeHtml(g.name)}</div><div class="budget-sub">${pct>=100?'Objectif atteint 🎉':`Il reste ${prefs.hideBalance?'••••':fmt(left)}`}${canCover?' · Ton solde actuel peut le couvrir':''}</div><div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="chip-btn" onclick="adjustGoal(${g.id},50)">+50€</button><button class="chip-btn" onclick="adjustGoal(${g.id},100)">+100€</button><button class="chip-btn" onclick="editGoal(${g.id})">Modifier</button></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px"><div class="tx-amount template">${prefs.hideBalance?'••••':fmt(g.saved)} / ${prefs.hideBalance?'••••':fmt(g.target)}</div><button class="row-delete" onclick="deleteGoal(${g.id})">✕</button></div></div>`}).join('')}
+function buildDonut(sorted,total){const wrap=document.getElementById('reportDonutWrap'); if(!wrap)return; if(!sorted.length||total<=0){wrap.innerHTML=''; return} let start=0; const colors=['var(--accent)','var(--accent-2)','var(--success)','#FF9F0A','#FF5C93','#7B7CFF']; const stops=sorted.slice(0,6).map(([_,amount],i)=>{const pct=(amount/total)*100; const from=start; start+=pct; return `${colors[i%colors.length]} ${from}% ${start}%`;}).join(', '); wrap.innerHTML=`<div style="display:grid;place-items:center;padding:8px 0 18px"><div style="width:170px;height:170px;border-radius:50%;background:conic-gradient(${stops});position:relative;box-shadow:var(--shadow-sm)"><div style="position:absolute;inset:18px;border-radius:50%;background:var(--panel-solid);display:grid;place-items:center;text-align:center;padding:12px"><div><div class="summary-label" style="margin-bottom:6px">Dépenses</div><div class="summary-value mono" style="font-size:22px">${prefs.hideBalance?'••••':fmt(total)}</div></div></div></div></div>`}
+function renderTrendChart(){const wrap=document.getElementById('trendChart'); if(!wrap)return; const months=[]; for(let i=5;i>=0;i--){const d=new Date(rpMonth.y,rpMonth.m-i,1); const ref={m:d.getMonth(),y:d.getFullYear()}; const t=getMonthlyTotals(ref); months.push({label:MONTHS_FR[ref.m].slice(0,3),income:t.income,expense:t.expense})} const max=Math.max(1,...months.map(x=>Math.max(x.income,x.expense))); wrap.innerHTML=`<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding-top:6px">${months.map(m=>`<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div style="height:130px;display:flex;align-items:flex-end;gap:4px"><div title="Revenus" style="width:12px;height:${(m.income/max)*120}px;border-radius:999px;background:var(--success)"></div><div title="Dépenses" style="width:12px;height:${(m.expense/max)*120}px;border-radius:999px;background:var(--accent)"></div></div><div class="chart-value">${m.label}</div></div>`).join('')}</div><div class="helper-text" style="margin-top:10px">Barres vertes = revenus, barres accent = dépenses.</div>`}
 
 function renderReports(){
   document.getElementById('reportMonthLabel').textContent=fmtMonth(rpMonth); const {income,expense,balance,monthTx}=getMonthlyTotals(rpMonth);
@@ -740,7 +872,8 @@ async function registerSW(){if(!('serviceWorker' in navigator))return; try{const
 async function forceRefreshAssets(){if(!('serviceWorker' in navigator))return showToast('Service Worker non supporté.','error'); const regs=await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r=>r.update())); showToast('Vérification du cache lancée.','info')}
 
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(prefs.themeMode==='auto')applyPrefs()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal(); if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){if(document.getElementById('transactionModal').classList.contains('show'))addTransaction(); if(document.getElementById('budgetModal').classList.contains('show'))addBudget(); if(document.getElementById('templateModal').classList.contains('show'))addTemplate();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal(); if(e.key==='Enter'&&document.activeElement?.id==='unlockPinInput')unlockApp(); if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){if(document.getElementById('transactionModal').classList.contains('show'))addTransaction(); if(document.getElementById('budgetModal').classList.contains('show'))addBudget(); if(document.getElementById('templateModal').classList.contains('show'))addTemplate(); if(document.getElementById('goalModal').classList.contains('show'))saveGoal();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&prefs.autoLock)lockApp(true)});
 (()=>{let sy=0; document.querySelectorAll('.modal-sheet').forEach(s=>{s.addEventListener('touchstart',e=>{sy=e.touches[0].clientY},{passive:true}); s.addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-sy>90)closeModal()},{passive:true})})})();
 
 ensureMigration();
@@ -749,12 +882,14 @@ applyPrefs();
 renderDashboard();
 renderAllBudgets();
 renderTemplates();
+renderGoals();
 renderAllTransactions();
 renderReports();
 updateStatusPills();
 updatePwaControls();
 registerSW();
 switchPage(prefs.startPage||'home');
+if(prefs.pinEnabled&&prefs.pinCode)lockApp(true);
 </script>
 </body>
 </html>
