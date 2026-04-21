@@ -1,27 +1,17 @@
 {
   "name": "Mon Budget",
   "short_name": "Budget",
-  "description": "Gestion budgétaire personnelle avec prédictions, objectifs, défis, simulation et mode coloc.",
+  "description": "Gestion budgétaire personnelle locale, élégante et hors ligne.",
   "lang": "fr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0a0a14",
-  "theme_color": "#0a0a14",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
   "orientation": "portrait-primary",
   "categories": ["finance", "productivity", "utilities"],
   "icons": [
-    {
-      "src": "./icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
   ]
 }
