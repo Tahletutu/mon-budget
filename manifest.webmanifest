@@ -1,7 +1,7 @@
 {
   "name": "Mon Budget",
   "short_name": "Budget",
-  "description": "Gestion budgétaire personnelle locale et hors ligne.",
+  "description": "Gestion budgétaire personnelle avec prédictions, objectifs, défis, simulation et mode coloc.",
   "lang": "fr",
   "start_url": "./index.html",
   "scope": "./",
